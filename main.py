@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
 import boto3 
 import json
@@ -17,6 +17,8 @@ BUCKET_NAME = os.getenv('BUCKET_NAME')
 FOLDER_NAME = os.getenv('FOLDER_NAME')
 DB_NAME = os.getenv('DB_NAME')
 TABLE_NAME = os.getenv('TABLE_NAME')
+
+list_categories = ["Food","Education","Home","Others"]
 
 class Expense(BaseModel):
     id_: Optional[str] = uuid4().hex
@@ -57,12 +59,23 @@ async def get_all():
     return {'data':json_df}
 
 @app.get('/get_category/{category}')
-async def get_category():
-    pass
+async def get_category(category: str):
+    if category not in list_categories:
+        raise HTTPException(404, f"Category {category} not found.")
+    df = wr.athena.read_sql_query(sql=f"SELECT * FROM {TABLE_NAME} WHERE category = '{category}'", 
+                                  database=DB_NAME)
+    json_df = df.T.to_dict()
+    
+    return {'data':json_df}
 
-@app.get('/get_one/{id}')
-async def get_one(id: str):
-    pass
+
+@app.get('/get_one/{id_}')
+async def get_one(id_: str):
+    df = wr.athena.read_sql_query(sql=f"SELECT * FROM {TABLE_NAME} WHERE id_ = '{id_}'", 
+                                  database=DB_NAME)
+    json_df = df.T.to_dict()
+    
+    return {'data':json_df}
 
 @app.get('/update')
 async def update():
