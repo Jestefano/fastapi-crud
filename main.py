@@ -36,7 +36,6 @@ list_categories = get_args(Expense.__annotations__['category'])
 
 app = FastAPI()
 s3 = boto3.resource('s3')
-athena = boto3.client('athena')
 
 @app.get('/')
 async def root():
