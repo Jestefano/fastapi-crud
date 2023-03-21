@@ -26,7 +26,7 @@ class Expense(BaseModel):
     id_: Optional[str] = uuid4().hex
     day: Optional[date] = date.today()
     amount: float
-    category: Literal["Food","Education","Home","Others"]
+    category: Literal["Food", "Education", "Home", "Others"]
     description: Optional[str] = ""
 
 class ExpenseOptional(Expense):
