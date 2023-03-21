@@ -1,15 +1,19 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
-import boto3 
-import json
-from pydantic import BaseModel
+
+import boto3
+import awswrangler as wr  
+
+from typing import Optional, Literal, get_args
 from uuid import uuid4
-from typing import Optional, Literal
+from pydantic import BaseModel
 
 from dotenv import load_dotenv
+
 from datetime import date
 import os
-import awswrangler as wr  
+
+from utils import save_json, delete_json, read_id_to_json
 
 load_dotenv()
 
@@ -18,14 +22,17 @@ FOLDER_NAME = os.getenv('FOLDER_NAME')
 DB_NAME = os.getenv('DB_NAME')
 TABLE_NAME = os.getenv('TABLE_NAME')
 
-list_categories = ["Food","Education","Home","Others"]
-
 class Expense(BaseModel):
     id_: Optional[str] = uuid4().hex
     day: Optional[date] = date.today()
     amount: float
     category: Literal["Food","Education","Home","Others"]
     description: Optional[str] = ""
+
+class ExpenseOptional(Expense):
+    __annotations__ = {k: Optional[v] for k, v in Expense.__annotations__.items()}
+
+list_categories = get_args(Expense.__annotations__['category'])
 
 app = FastAPI()
 s3 = boto3.resource('s3')
@@ -41,22 +48,16 @@ async def create(expense: Expense):
     json_expense = jsonable_encoder(expense)
     print(json_expense)
     
-    id_store = json_expense['id_']
-    category = json_expense['category']
-    del json_expense['category']
+    save_json(s3, BUCKET_NAME, FOLDER_NAME, json_expense)
 
-    s3object = s3.Object(BUCKET_NAME, f'{FOLDER_NAME}/{category}/{id_store}.json')
-
-    s3object.put(Body=(bytes(json.dumps(json_expense).encode('UTF-8'))))
-
-    return {"message":"Inserted correctly"}
+    return {'message': 'Inserted correctly'}
     
 @app.get('/get_all/')
 async def get_all():
     df = wr.athena.read_sql_query(sql=f"SELECT * FROM {TABLE_NAME}", database=DB_NAME)
     json_df = df.T.to_dict()
     
-    return {'data':json_df}
+    return {'data': json_df}
 
 @app.get('/get_category/{category}')
 async def get_category(category: str):
@@ -66,21 +67,36 @@ async def get_category(category: str):
                                   database=DB_NAME)
     json_df = df.T.to_dict()
     
-    return {'data':json_df}
-
+    return {'data': json_df}
 
 @app.get('/get_one/{id_}')
 async def get_one(id_: str):
-    df = wr.athena.read_sql_query(sql=f"SELECT * FROM {TABLE_NAME} WHERE id_ = '{id_}'", 
-                                  database=DB_NAME)
-    json_df = df.T.to_dict()
+    json_df = read_id_to_json(DB_NAME, TABLE_NAME, id_)
     
-    return {'data':json_df}
+    return {'data': json_df}
 
-@app.get('/update')
-async def update():
-    pass
+@app.put('/update/{id_}')
+async def update(id_: str, expense_optional: ExpenseOptional):
+    json_df = read_id_to_json(DB_NAME, TABLE_NAME, id_)
+    json_expense = jsonable_encoder(expense_optional)
+    
+    # Delete json
+    delete_json(s3, BUCKET_NAME, FOLDER_NAME, json_df)
+    
+    for key in json_expense:
+        if key == 'id_': 
+            continue # Don't modify the key
+        elif json_expense[key] is not None: 
+            json_df[key] = json_expense[key]
 
-@app.get('/delete')
-async def delete():
-    pass
+    # Save new json
+    save_json(s3, BUCKET_NAME, FOLDER_NAME, json_df)
+    
+    return {'message': 'Updated correctly'}
+    
+@app.delete('/delete/{id_}')
+async def delete(id_: str):
+    df_json = read_id_to_json(DB_NAME, TABLE_NAME, id_)
+    delete_json(s3, BUCKET_NAME, FOLDER_NAME, df_json)
+
+    return {'message': 'Deleted correctly'}
