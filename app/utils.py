@@ -1,5 +1,6 @@
 import json
 from fastapi import HTTPException
+from fastapi.encoders import jsonable_encoder
 import awswrangler as wr  
 
 def save_json(s3, BUCKET_NAME,FOLDER_NAME,json_data):
@@ -22,4 +23,4 @@ def read_id_to_json(DB_NAME, TABLE_NAME, id_):
         raise HTTPException(404, f"Id {id_} not found.")
     
     json_df = df.T.to_dict()[0]
-    return json_df
+    return jsonable_encoder(json_df)

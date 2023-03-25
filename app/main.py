@@ -4,16 +4,15 @@ from fastapi.encoders import jsonable_encoder
 import boto3
 import awswrangler as wr  
 
-from typing import Optional, Literal, get_args
+from typing import get_args
 from uuid import uuid4
-from pydantic import BaseModel
 
 from dotenv import load_dotenv
 
-from datetime import date
 import os
 
-from utils import save_json, delete_json, read_id_to_json
+from app.utils import save_json, delete_json, read_id_to_json
+from app.model import Expense, ExpenseOptional
 
 load_dotenv()
 
@@ -21,16 +20,6 @@ BUCKET_NAME = os.getenv('BUCKET_NAME')
 FOLDER_NAME = os.getenv('FOLDER_NAME')
 DB_NAME = os.getenv('DB_NAME')
 TABLE_NAME = os.getenv('TABLE_NAME')
-
-class Expense(BaseModel):
-    id_: Optional[str] = uuid4().hex
-    day: Optional[date] = date.today()
-    amount: float
-    category: Literal["Food", "Education", "Home", "Others"]
-    description: Optional[str] = ""
-
-class ExpenseOptional(Expense):
-    __annotations__ = {k: Optional[v] for k, v in Expense.__annotations__.items()}
 
 list_categories = get_args(Expense.__annotations__['category'])
 
@@ -56,7 +45,7 @@ async def get_all():
     df = wr.athena.read_sql_query(sql=f"SELECT * FROM {TABLE_NAME}", database=DB_NAME)
     json_df = df.T.to_dict()
     
-    return {'data': json_df}
+    return {'data': jsonable_encoder(json_df)}
 
 @app.get('/get_category/{category}')
 async def get_category(category: str):
@@ -66,13 +55,13 @@ async def get_category(category: str):
                                   database=DB_NAME)
     json_df = df.T.to_dict()
     
-    return {'data': json_df}
+    return {'data': jsonable_encoder(json_df)}
 
 @app.get('/get_one/{id_}')
 async def get_one(id_: str):
     json_df = read_id_to_json(DB_NAME, TABLE_NAME, id_)
     
-    return {'data': json_df}
+    return {'data': jsonable_encoder(json_df)}
 
 @app.put('/update/{id_}')
 async def update(id_: str, expense_optional: ExpenseOptional):
