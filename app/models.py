@@ -9,9 +9,9 @@ class Expense(BaseModel):
     amount: constr(regex=r'-?^\d+(?:\.\d{1,2})?$') = Field(title = "The amount spent (as a string)",
                                                            description = ">0 when income, <0 when expense.",
                                                            example = "-20.5")
-    category: Field(title = "Category of the transaction",
-                    example = "Food",
-                    description = "For a full list see /get_categories")
+    category: str = Field(title = "Category of the transaction",
+                          example = "Food",
+                          description = "For a full list see /get_categories")
     description: Optional[str] = Field(default = "",
                                        title = "Details of the transaction",
                                        example = "FastAPI Course")
