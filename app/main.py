@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 
 import boto3
@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 
 import os
 
-from app.utils import save_json, delete_json, read_id_to_json
-from app.model import Expense, ExpenseOptional
+from app.utils import save_json, delete_json, read_id_to_json, get_categories_aux, process_amount
+from app.models import Expense, ExpenseOptional
 
 load_dotenv()
 
@@ -30,40 +30,49 @@ s3 = boto3.resource('s3')
 async def root():
     return {'message':'Welcome to my app! Explore the methods in /docs'}
 
-@app.post('/create')
+@app.post('/create', status_code = status.HTTP_201_CREATED)
 async def create(expense: Expense):
     expense.id_ = uuid4().hex
     json_expense = jsonable_encoder(expense)
-    print(json_expense)
+    
+    # Validate categories
+    list_categories = get_categories_aux(s3, BUCKET_NAME)
+    if json_expense['category'] not in list_categories:
+        category = json_expense['category']
+        HTTPException(404, f"Category {category} not found. See /get_categories for more info.")
+
+    # Process amount
+    json_expense['amount_int'] = process_amount(json_expense['amount'])
     
     save_json(s3, BUCKET_NAME, FOLDER_NAME, json_expense)
 
     return {'message': 'Inserted correctly'}
     
-@app.get('/get_all/')
+@app.get('/get_all/', status_code = status.HTTP_200_OK)
 async def get_all():
     df = wr.athena.read_sql_query(sql=f"SELECT * FROM {TABLE_NAME}", database=DB_NAME)
     json_df = df.T.to_dict()
     
     return {'data': jsonable_encoder(json_df)}
 
-@app.get('/get_category/{category}')
+@app.get('/get_category/{category}', status_code = status.HTTP_200_OK)
 async def get_category(category: str):
+    list_categories = get_categories_aux(s3, BUCKET_NAME)
     if category not in list_categories:
-        raise HTTPException(404, f"Category {category} not found.")
+        raise HTTPException(404, f"Category {category} not found. See /get_categories for more info.")
     df = wr.athena.read_sql_query(sql=f"SELECT * FROM {TABLE_NAME} WHERE category = '{category}'", 
                                   database=DB_NAME)
     json_df = df.T.to_dict()
     
     return {'data': jsonable_encoder(json_df)}
 
-@app.get('/get_one/{id_}')
+@app.get('/get_one/{id_}', status_code = status.HTTP_200_OK)
 async def get_one(id_: str):
     json_df = read_id_to_json(DB_NAME, TABLE_NAME, id_)
     
     return {'data': jsonable_encoder(json_df)}
 
-@app.put('/update/{id_}')
+@app.put('/update/{id_}', status_code = status.HTTP_202_ACCEPTED)
 async def update(id_: str, expense_optional: ExpenseOptional):
     json_df = read_id_to_json(DB_NAME, TABLE_NAME, id_)
     json_expense = jsonable_encoder(expense_optional)
@@ -82,7 +91,7 @@ async def update(id_: str, expense_optional: ExpenseOptional):
     
     return {'message': 'Updated correctly'}
     
-@app.delete('/delete/{id_}')
+@app.delete('/delete/{id_}', status_code = status.HTTP_202_ACCEPTED)
 async def delete(id_: str):
     df_json = read_id_to_json(DB_NAME, TABLE_NAME, id_)
     delete_json(s3, BUCKET_NAME, FOLDER_NAME, df_json)

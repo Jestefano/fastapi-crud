@@ -24,3 +24,22 @@ def read_id_to_json(DB_NAME, TABLE_NAME, id_):
     
     json_df = df.T.to_dict()[0]
     return jsonable_encoder(json_df)
+
+def get_categories_aux(s3, BUCKET_NAME):
+    s3object = s3.Object(BUCKET_NAME, 'conf/categories.json')
+    file_content = s3object.get()['Body'].read().decode('utf-8')
+    json_content = json.loads(file_content)
+
+    return json_content
+
+def process_amount(amount_str: str):
+    amount_int, amount_decimal = amount_str.split('.')
+    amount_int = int(amount_int)
+    if amount_decimal == '':
+        amount_decimal = 0
+    elif len(amount_decimal) == 1:
+        amount_decimal = int(amount_decimal) * 10
+    else:
+        amount_decimal = int(amount_decimal)
+        
+    return amount_int * 100 + amount_decimal
