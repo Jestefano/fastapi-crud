@@ -31,18 +31,22 @@ async def root():
     return {'message':'Welcome to my app! Explore the methods in /docs'}
 
 @app.post('/create', status_code = status.HTTP_201_CREATED)
-async def create(expense: Expense):
-    expense.id_ = uuid4().hex
-    json_expense = jsonable_encoder(expense)
+async def create(exp: Expense):
+    json_expense = jsonable_encoder(exp)
+    print(json_expense)
+    exp.id_ = uuid4().hex
     
     # Validate categories
     list_categories = get_categories_aux(s3, BUCKET_NAME)
-    if json_expense['category'] not in list_categories:
-        category = json_expense['category']
+    print(exp)
+    if exp.category not in list_categories:
+        category = exp.category
         HTTPException(404, f"Category {category} not found. See /get_categories for more info.")
 
     # Process amount
-    json_expense['amount_int'] = process_amount(json_expense['amount'])
+    json_expense = exp.dict()
+    print(json_expense)
+    json_expense['amount_int'] = process_amount(exp.amount)
     
     save_json(s3, BUCKET_NAME, FOLDER_NAME, json_expense)
 

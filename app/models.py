@@ -1,11 +1,23 @@
 from typing import Optional
-from pydantic import BaseModel, Field, constr
+from pydantic import BaseModel, constr, Field
 from datetime import date
+from app.enums import TypeEnum
+
+# class Category(BaseModel):
+#     id_: Optional[str] = Field(default = None, primary_key = True)
+#     name: TypeEnum = Field(title = "Name of the category", example = "Food")
+
+#     class Config:
+#         schema_extra = {
+#             "example": {
+#                 "name": "Food"
+#             }
+#         }
 
 class Expense(BaseModel):
-    id_: str = Field(None, include = False)
-    day: Optional[date] = Field(default = date.today(),
-                                title = "The day of the transaction")
+    id_: Optional[str] = Field(default = None)
+    day: date = Field(default = date.today(),
+                     title = "The day of the transaction")
     amount: constr(regex=r'-?^\d+(?:\.\d{1,2})?$') = Field(title = "The amount spent (as a string)",
                                                            description = ">0 when income, <0 when expense.",
                                                            example = "-20.5")
@@ -15,7 +27,7 @@ class Expense(BaseModel):
     description: Optional[str] = Field(default = "",
                                        title = "Details of the transaction",
                                        example = "FastAPI Course")
-    
+
     class Config:
         schema_extra = {
             "example": {
@@ -28,4 +40,3 @@ class Expense(BaseModel):
 
 class ExpenseOptional(Expense):
     __annotations__ = {k: Optional[v] for k, v in Expense.__annotations__.items()}
-    
