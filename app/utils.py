@@ -30,10 +30,15 @@ def get_categories_aux(s3, BUCKET_NAME):
     file_content = s3object.get()['Body'].read().decode('utf-8')
     json_content = json.loads(file_content)
 
-    return json_content
+    return json_content['data']
 
 def process_amount(amount_str: str):
-    amount_int, amount_decimal = amount_str.split('.')
+    if len(amount_str.split('.')) == 2:
+        amount_int, amount_decimal = amount_str.split('.')
+    else:
+        amount_int = amount_str
+        amount_decimal = ''
+
     amount_int = int(amount_int)
     if amount_decimal == '':
         amount_decimal = 0
