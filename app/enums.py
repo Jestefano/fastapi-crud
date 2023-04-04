@@ -10,6 +10,6 @@ s3 = boto3.resource('s3')
 BUCKET_NAME = os.getenv('BUCKET_NAME')
 
 list_categories = get_categories_aux(s3, BUCKET_NAME)
-dict_categories = {cat.upper():cat.title() for cat in list_categories}
+dict_categories = {cat.upper(): cat.title() for cat in list_categories}
 
 TypeEnum = Enum("CategoryType", dict_categories)
